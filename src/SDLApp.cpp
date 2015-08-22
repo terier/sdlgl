@@ -1,5 +1,7 @@
 #include <SDLApp.h>
 #include <Logger.h>
+#include <Globals.h>
+#include <GL/gl.h>
 
 #include <sstream>
 
@@ -7,8 +9,10 @@ bool SDLApp::isInit = false;
 
 SDLApp::SDLApp()
 	: window(NULL),
-	  glcontext(NULL)
+	  glcontext(NULL),
+	  eventReceiver(NULL)
 {
+	// Initialize SDL
 	if (!isInit) {
 		LOG(DEBUG, "Initializing SDL");
 		if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -17,6 +21,11 @@ SDLApp::SDLApp()
 			isInit = true;
 		}
 	}
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+	// Create the base window
 	LOG(DEBUG, "Creating window");
 	window = SDL_CreateWindow(
 		"Graphics",
@@ -28,6 +37,8 @@ SDLApp::SDLApp()
 	if (!window) {
 		LOG(ERROR, SDL_GetError());
 	}
+
+	// Create an OpenGL context within the base window
 	LOG(DEBUG, "Creating OpenGL context");
 	glcontext = SDL_GL_CreateContext(window);
 	if (!glcontext) {
@@ -40,6 +51,8 @@ SDLApp::SDLApp()
 		std::ostringstream ss;
 		ss << "OpenGL version: " << major << "." << minor;
 		LOG(INFO, ss.str());
+
+		InitGL();
 	}
 }
 
@@ -57,6 +70,14 @@ SDLApp::~SDLApp() {
 	isInit = false;
 }
 
+void SDLApp::InitGL() {
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glClearColor(0.f, 0.f, 0.f, 1.f);
+}
+
 SDL_Window* SDLApp::GetWindow() const {
 	return window;
 }
@@ -65,6 +86,28 @@ SDL_GLContext SDLApp::GetGLContext() const {
 	return glcontext;
 }
 
-bool SDLApp::IsInit() const {
+EventReceiver* SDLApp::GetEventReceiver() const {
+	return eventReceiver;
+}
+
+bool SDLApp::IsInitialized() const {
 	return isInit;
+}
+
+void SDLApp::ProcessEvents() {
+	SDL_Event event;
+	if (eventReceiver) {
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				Globals["running"] = "false";
+			}
+			eventReceiver->OnEvent(event);
+		}
+	} else {
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				Globals["running"] = "false";
+			}
+		}
+	}
 }
